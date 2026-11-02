@@ -1,13 +1,13 @@
 const KMB_STOPS = [
   {
     id: "46D1A9FD1F84CA5C",
-    title: "藍地站 · 往青衣／西九龍",
+    title: "往青衣／西九龍",
     dir: "O",
     routes: ["68A", "63X"],
   },
   {
     id: "7FE552E3792C9047",
-    title: "藍地站 · 往朗屏／洪水橋",
+    title: "往朗屏／洪水橋",
     dir: "I",
     routes: ["68A", "63X"],
   },
@@ -17,11 +17,12 @@ const KMB_URL = "https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/";
 
 const NLB_ROUTES = [
   {
-    title: "藍地站 · 往深圳灣",
+    title: "嶼巴 · 往深圳灣",
     route: "B2",
     routeId: 37,
     stopId: 151,
     dest: "深圳灣口岸",
+    column: 0,
   },
 ];
 
@@ -156,132 +157,227 @@ function arrivalsForLrt(platforms) {
     });
 
     return {
-      title: dests.length ? `輕鐵藍地站 · 往${dests.join("／")}` : "輕鐵藍地站",
+      title: dests.length ? `往${dests.join("／")}` : "藍地站",
       items,
     };
   }).filter((section) => section.items.length);
 }
 
-function renderRoute(item, now) {
-  const row = document.createElement("div");
-  row.className = "kmb-route";
-  const name = document.createElement("div");
-  const code = document.createElement("span");
-  code.className = "kmb-code";
-  code.textContent = item.route;
-  name.append(code);
-  if (item.dest) {
-    const dest = document.createElement("span");
-    dest.className = "kmb-dest";
-    dest.textContent = item.dest;
-    name.append(dest);
-  }
+function buttonDest(dest) {
+  return String(dest || "")
+    .replace("高鐵(西九龍站)", "西九龍")
+    .replace("洪水橋(洪福邨)", "洪福")
+    .replace("深圳灣口岸", "深圳灣")
+    .replace("屯門碼頭", "屯門")
+    .replace(/站$/, "")
+    .replace(/邨$/, "");
+}
 
-  const times = document.createElement("div");
-  times.className = "kmb-etas";
-  if (!item.etas.length) {
-    const empty = document.createElement("p");
-    empty.className = "kmb-empty";
-        empty.textContent = item.emptyText || "暫無班次";
-    times.append(empty);
-  } else {
-    item.etas.forEach((eta) => {
-      const line = document.createElement("p");
-      const wait = document.createElement("strong");
-      wait.className = "wait";
-          wait.textContent = eta.label || kmbWait(eta.when, now);
-      line.append(wait);
-      if (eta.rmk_tc) {
-        const remark = document.createElement("span");
-        remark.className = "rmk";
-        remark.textContent = ` ${eta.rmk_tc}`;
-        line.append(remark);
-      }
-      times.append(line);
+function busMinutes(eta, now) {
+  if (eta.when instanceof Date && !Number.isNaN(eta.when.getTime())) {
+    return Math.max(0, Math.round((eta.when.getTime() - now.getTime()) / 60000));
+  }
+  return 9999;
+}
+
+function busRank(route) {
+  const order = ["68A", "63X", "B2"];
+  const index = order.indexOf(route);
+  return index === -1 ? order.length : index;
+}
+
+function renderBus(board, now) {
+  const sections = KMB_STOPS.map((stop) => ({
+    title: stop.title,
+    items: kmbCache
+      ? arrivalsFor(stop, kmbCache.rows, now).map((item) => ({
+          route: item.route,
+          dest: item.dest,
+          etas: item.etas,
+          emptyText: "暫無",
+        }))
+      : [],
+  }));
+
+  if (nlbCache || nlbError) {
+    NLB_ROUTES.forEach((route) => {
+      const item = nlbCache ? arrivalsForNlb(route, now) : { dest: route.dest, etas: [] };
+      sections[route.column].items.push({
+        route: route.route,
+        dest: item.dest || route.dest,
+        etas: item.etas,
+        emptyText: "暫無",
+      });
     });
   }
 
-  row.append(name, times);
-  return row;
+  sections.forEach((section) => {
+    section.items.sort((a, b) => busRank(a.route) - busRank(b.route) || a.route.localeCompare(b.route));
+  });
+
+  const routes = [];
+  sections.forEach((section) => {
+    section.items.forEach((item) => {
+      if (!routes.includes(item.route)) routes.push(item.route);
+    });
+  });
+  routes.sort((a, b) => busRank(a) - busRank(b) || a.localeCompare(b));
+  if (!routes.length) return;
+
+  const grid = document.createElement("div");
+  grid.className = "lrt-grid";
+  grid.style.setProperty("--lrt-cols", "2");
+
+  sections.forEach((section) => {
+    const heading = document.createElement("h3");
+    heading.textContent = section.title;
+    grid.append(heading);
+  });
+
+  routes.forEach((route) => {
+    sections.forEach((section) => {
+      const item = section.items.find((entry) => entry.route === route);
+      const cell = document.createElement("div");
+      cell.className = "lrt-cell";
+      if (!item) {
+        grid.append(cell);
+        return;
+      }
+      const code = document.createElement("span");
+      code.className = "lrt-code";
+      code.textContent = item.route;
+      const dest = document.createElement("span");
+      dest.className = "lrt-dest";
+      dest.textContent = buttonDest(item.dest);
+      const wait = document.createElement("span");
+      wait.className = "lrt-wait";
+      const first = item.etas[0];
+      const label = first ? kmbWait(first.when, now) : item.emptyText || "暫無";
+      wait.textContent = label;
+      const minutes = first ? busMinutes(first, now) : null;
+      if (label === "即將到站" || (Number.isFinite(minutes) && minutes <= 2)) wait.classList.add("is-due");
+      if (first?.rmk_tc) {
+        const note = document.createElement("span");
+        note.className = "lrt-note";
+        note.textContent = "原定";
+        wait.append(note);
+      }
+      cell.append(code, dest, wait);
+      grid.append(cell);
+    });
+  });
+
+  board.replaceChildren(grid);
 }
 
-function renderSection(title, items, now) {
-  const section = document.createElement("article");
-  section.className = "kmb-stop";
-  const heading = document.createElement("h3");
-  heading.textContent = title;
-  section.append(heading);
-  items.forEach((item) => section.append(renderRoute(item, now)));
-  return section;
+function lrtRank(route) {
+  const order = ["610", "614", "615", "751"];
+  const index = order.indexOf(route);
+  return index === -1 ? order.length : index;
+}
+
+function lrtHeading(title) {
+  if (title.includes("元朗")) return "往元朗";
+  if (title.includes("屯門")) return "往屯門";
+  return title;
+}
+
+function lrtSide(title) {
+  if (title.includes("元朗")) return 0;
+  if (title.includes("屯門")) return 1;
+  return 2;
+}
+
+function renderLrt(board) {
+  const sections = arrivalsForLrt(lrtCache.platforms).sort((a, b) => lrtSide(a.title) - lrtSide(b.title));
+  sections.forEach((section) => {
+    section.items.sort((a, b) => lrtRank(a.route) - lrtRank(b.route) || a.route.localeCompare(b.route));
+  });
+  const routes = [];
+  sections.forEach((section) => {
+    section.items.forEach((item) => {
+      if (!routes.includes(item.route)) routes.push(item.route);
+    });
+  });
+  routes.sort((a, b) => lrtRank(a) - lrtRank(b) || a.localeCompare(b));
+
+  const grid = document.createElement("div");
+  grid.className = "lrt-grid";
+  grid.style.setProperty("--lrt-cols", String(Math.max(sections.length, 1)));
+
+  sections.forEach((section) => {
+    const heading = document.createElement("h3");
+    heading.textContent = lrtHeading(section.title);
+    grid.append(heading);
+  });
+
+  routes.forEach((route) => {
+    sections.forEach((section) => {
+      const item = section.items.find((entry) => entry.route === route);
+      const cell = document.createElement("div");
+      cell.className = "lrt-cell";
+      if (!item) {
+        grid.append(cell);
+        return;
+      }
+      const code = document.createElement("span");
+      code.className = "lrt-code";
+      code.textContent = item.route;
+      const dest = document.createElement("span");
+      dest.className = "lrt-dest";
+      dest.textContent = buttonDest(item.dest);
+      const wait = document.createElement("span");
+      wait.className = "lrt-wait";
+      const label = item.etas[0] ? item.etas[0].label : item.emptyText || "暫無";
+      wait.textContent = label;
+      const minutes = item.etas[0]?.minutes;
+      if (label === "即將到站" || label === "正在離開" || (Number.isFinite(minutes) && minutes <= 2)) {
+        wait.classList.add("is-due");
+      }
+      cell.append(code, dest, wait);
+      grid.append(cell);
+    });
+  });
+
+  board.replaceChildren(grid);
+}
+
+function setStatus(id, updated, fallback) {
+  const status = document.getElementById(id);
+  if (!status) return;
+  status.textContent = updated ? `${kmbClock(updated)} 更新` : fallback;
+  status.classList.toggle("is-live", Boolean(updated));
 }
 
 function renderKmb() {
-  const board = document.getElementById("kmb-board");
-  const status = document.getElementById("kmb-status");
-  if (!board || !status) return;
-
-  if (!kmbCache && !nlbCache && !lrtCache) {
-    status.textContent = kmbError || nlbError || lrtError ? "藍地站" : "讀取中";
-    board.replaceChildren();
-    if (kmbError || nlbError || lrtError) {
-      const message = document.createElement("p");
-      message.className = "kmb-empty";
-      message.textContent = kmbError || nlbError || lrtError;
-      board.append(message);
-    }
-    return;
-  }
+  const busBoard = document.getElementById("kmb-board");
+  const lrtBoard = document.getElementById("lrt-board");
+  if (!busBoard || !lrtBoard) return;
 
   const now = new Date();
-  const updated = [kmbCache?.updated, nlbCache?.updated, lrtCache?.updated]
-    .filter(Boolean)
-    .sort((a, b) => b - a)[0];
-  status.textContent = `${kmbClock(updated)} 更新`;
-  board.replaceChildren();
+  setStatus("kmb-status", kmbCache?.updated || nlbCache?.updated, kmbError || nlbError ? "藍地站" : "讀取中");
+  setStatus("lrt-status", lrtCache?.updated, lrtError ? "藍地站" : "讀取中");
 
-  if (kmbCache) {
-    KMB_STOPS.forEach((stop) => {
-      board.append(renderSection(stop.title, arrivalsFor(stop, kmbCache.rows, now), now));
-    });
-  } else if (kmbError) {
-    const message = document.createElement("p");
-    message.className = "kmb-empty";
-    message.textContent = kmbError;
-    board.append(message);
+  if (kmbCache || nlbCache) {
+    renderBus(busBoard, now);
+  } else if (kmbError || nlbError) {
+    busBoard.replaceChildren(renderMessage(kmbError || nlbError));
   }
 
-  NLB_ROUTES.forEach((route) => {
-    const item = nlbCache
-      ? arrivalsForNlb(route, now)
-      : { route: route.route, dest: route.dest, etas: [] };
-    if (!nlbCache && !nlbError) return;
-    board.append(renderSection(route.title, [item], now));
-  });
-
-  if (lrtCache) {
-    const sections = arrivalsForLrt(lrtCache.platforms);
-    if (sections.length) {
-      sections.forEach((section) => {
-        board.append(renderSection(section.title, section.items, now));
-      });
-    } else {
-      board.append(renderMessage("輕鐵藍地站", "暫無班次"));
-    }
+  if (lrtCache && arrivalsForLrt(lrtCache.platforms).length) {
+    renderLrt(lrtBoard);
   } else if (lrtError) {
-    board.append(renderMessage("輕鐵藍地站", lrtError));
+    lrtBoard.replaceChildren(renderMessage(lrtError));
+  } else if (lrtCache) {
+    lrtBoard.replaceChildren(renderMessage("暫無班次"));
   }
 }
 
-function renderMessage(title, text) {
-  const section = document.createElement("article");
-  section.className = "kmb-stop";
-  const heading = document.createElement("h3");
-  heading.textContent = title;
+function renderMessage(text) {
   const message = document.createElement("p");
   message.className = "kmb-empty";
   message.textContent = text;
-  section.append(heading, message);
-  return section;
+  return message;
 }
 
 async function loadKmb() {

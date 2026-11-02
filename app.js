@@ -193,7 +193,7 @@ function render() {
   $("now-date").textContent = now.label;
   $("now-clock").textContent = `${pad(now.h)}:${pad(now.m)}:${pad(now.s)}`;
 
-  document.querySelectorAll(".dir").forEach((button) => {
+  document.querySelectorAll(".mode-shuttle .dir").forEach((button) => {
     const on = button.dataset.id === route.id;
     button.setAttribute("aria-checked", on ? "true" : "false");
   });
@@ -206,6 +206,12 @@ function render() {
   const card = $("next");
   card.classList.toggle("is-soon", soon);
   card.classList.toggle("is-now", departing);
+  if (card.dataset.route !== route.id) {
+    card.dataset.route = route.id;
+    card.classList.remove("swap");
+    void card.offsetWidth;
+    card.classList.add("swap");
+  }
 
   const away = formatAway(wait, { tomorrow: result.tomorrow, withSeconds: true });
   if (result.tomorrow) {
@@ -268,7 +274,6 @@ function render() {
     }
   }
 
-  $("floater").textContent = `${$("big-time").textContent} · ${$("delta").textContent}`;
 }
 
 function emphasis(text) {
@@ -303,21 +308,9 @@ function init() {
       : "nr762-out";
   state.routeId = initial;
 
-  document.querySelectorAll(".dir").forEach((button) => {
+  document.querySelectorAll(".mode-shuttle .dir").forEach((button) => {
     button.addEventListener("click", () => selectRoute(button.dataset.id));
   });
-
-  $("floater").addEventListener("click", () => {
-    $("next").scrollIntoView({ behavior: "smooth", block: "start" });
-  });
-
-  const observer = new IntersectionObserver(
-    ([entry]) => {
-      $("floater").hidden = entry.isIntersecting;
-    },
-    { threshold: 0.15 }
-  );
-  observer.observe($("next"));
 
   render();
   setInterval(render, 1000);

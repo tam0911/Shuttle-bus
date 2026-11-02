@@ -4,25 +4,29 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1f3d32" />
-    <meta name="description" content="豫豐花園居民巴士 NR762、NR762A 班次查詢。每日服務，包括公眾假期。" />
+    <meta name="description" content="豫豐花園居民巴士、藍地站九巴及輕鐵班次。" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="豫豐村巴" />
+    <meta name="apple-mobile-web-app-title" content="豫豐出行" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>豫豐花園居民巴士</title>
+    <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Noto+Sans+TC:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=29" />
   </head>
   <body>
     <div class="sheet-page">
       <header class="mast">
         <div class="brand">
           <p class="estate">The Sherwood</p>
-          <h1>豫豐花園居民巴士</h1>
+          <h1>豫豐花園出行</h1>
         </div>
         <div class="now" aria-live="polite">
           <p class="now-date" id="now-date">香港時間</p>
@@ -30,10 +34,12 @@
         </div>
       </header>
 
-      <p class="service-line">星期一至日服務，包括公眾假期</p>
-
-      <div class="layout">
-        <section class="board" aria-label="查詢班次">
+      <main class="modes">
+        <section class="mode mode-shuttle" aria-labelledby="shuttle-title">
+          <div class="mode-head">
+            <h2 id="shuttle-title">居民巴士</h2>
+            <p>每日包括公眾假期</p>
+          </div>
           <div class="switcher" role="radiogroup" aria-label="選擇路線與方向">
             <button type="button" class="dir" role="radio" aria-checked="true" data-id="nr762-out">
               <span class="code">NR762</span>
@@ -63,11 +69,14 @@
             </div>
 
             <p class="kicker" id="kicker">下一班</p>
-            <p class="big-time" id="big-time">--:--</p>
-            <p class="delta" id="delta">計算中</p>
+            <div class="time-row">
+              <p class="big-time" id="big-time">--:--</p>
+              <p class="delta" id="delta">計算中</p>
+            </div>
             <p class="missed" id="missed" hidden></p>
 
             <div class="follow-row">
+              <p class="follow-label">其後</p>
               <div class="follow" id="follow" aria-label="其後班次"></div>
               <p class="last-bus">尾班 <strong id="last-bus-time">22:00</strong></p>
             </div>
@@ -75,34 +84,28 @@
 
           <p class="hint" id="hint"></p>
         </section>
-      </div>
 
-      <section class="nearby" aria-labelledby="nearby-title">
-        <div class="nearby-head">
-          <h2 id="nearby-title">屋苑附近交通</h2>
-          <p id="kmb-status">藍地站</p>
-        </div>
-        <div id="kmb-board"></div>
-      </section>
+        <section class="mode mode-bus" aria-labelledby="bus-title">
+          <div class="mode-head">
+            <h2 id="bus-title">九龍巴士(藍地站)</h2>
+            <p id="kmb-status">藍地站</p>
+          </div>
+          <div id="kmb-board"></div>
+        </section>
 
-      <section class="notes" aria-labelledby="notes-title">
-        <h2 id="notes-title">備註</h2>
-        <p class="warn">
-          當天文台發出八號或以上風球或黑色暴雨警告訊號後，在路面情況許可下，居民巴士服務將提供一小時之有限度服務；一小時後將暫時停駛，直至天文台解除八號風球或黑色暴雨警告訊號後兩小時內，恢復一切正常服務。
-        </p>
-        <p>
-          如有查詢，請致電 24 小時保安部控制室熱線
-          <a class="hotline" href="tel:+85235154088">3515 4088</a>。
-        </p>
-      </section>
-
-      <footer class="colophon">
-        <p>The Sherwood · 豫豐花園</p>
-      </footer>
+        <section class="mode mode-lrt" aria-labelledby="lrt-title">
+          <div class="mode-head">
+            <h2 id="lrt-title">輕鐵(藍地站)</h2>
+            <p id="lrt-status">藍地站</p>
+          </div>
+          <div id="lrt-board"></div>
+        </section>
+      </main>
     </div>
-
-    <button type="button" class="floater" id="floater" hidden>回到下一班</button>
-    <script src="app.js"></script>
-    <script src="kmb.js"></script>
+    <script src="app.js?v=24"></script>
+    <script src="kmb.js?v=27"></script>
+    <script>
+      if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+    </script>
   </body>
 </html>
