@@ -141,6 +141,7 @@ function arrivalsForLrt(platforms) {
               label: lrtWait(train),
               rmk_tc: train.routeRemarkChi2 || "",
               minutes: lrtMinutes(train),
+              cars: Number(train.train_length) || 0,
             })),
       };
     });
@@ -270,6 +271,12 @@ function renderBus(board, now) {
   board.replaceChildren(grid);
 }
 
+function lrtCars(length) {
+  if (length === 1) return { emoji: "🚃", label: "1卡" };
+  if (length === 2) return { emoji: "🚃 🚃", label: "2卡" };
+  return null;
+}
+
 function lrtRank(route) {
   const order = ["610", "614", "615", "751"];
   const index = order.indexOf(route);
@@ -329,7 +336,17 @@ function renderLrt(board) {
       const wait = document.createElement("span");
       wait.className = "lrt-wait";
       const label = item.etas[0] ? item.etas[0].label : item.emptyText || "暫無";
-      wait.textContent = label;
+      const cars = lrtCars(item.etas[0]?.cars);
+      if (cars) {
+        const mark = document.createElement("span");
+        mark.className = "lrt-cars";
+        mark.textContent = cars.emoji;
+        mark.title = cars.label;
+        mark.setAttribute("role", "img");
+        mark.setAttribute("aria-label", cars.label);
+        wait.append(mark);
+      }
+      wait.append(document.createTextNode(label));
       const minutes = item.etas[0]?.minutes;
       if (label === "即將到站" || label === "正在離開" || (Number.isFinite(minutes) && minutes <= 2)) {
         wait.classList.add("is-due");

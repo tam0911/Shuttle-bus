@@ -467,6 +467,13 @@ h1 {
   white-space: nowrap;
 }
 
+.lrt-cars {
+  margin-right: 4px;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  letter-spacing: 0;
+}
+
 .lrt-wait.is-due {
   animation: due 1.4s ease-in-out infinite;
 }

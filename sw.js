@@ -1,11 +1,11 @@
-const CACHE = "sherwood-v1";
+const CACHE = "sherwood-v4";
 
 const SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=29",
+  "./styles.css?v=31",
   "./app.js?v=24",
-  "./kmb.js?v=27",
+  "./kmb.js?v=30",
   "./manifest.json",
   "./favicon.svg",
   "./icon-192.png",
