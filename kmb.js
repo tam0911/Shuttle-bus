@@ -28,14 +28,20 @@ const NLB_ROUTES = [
 
 const NLB_URL = "https://rt.data.gov.hk/v2/transport/nlb/stop.php?action=estimatedArrivals";
 
-const LRT_URL = "https://rt.data.gov.hk/v1/transport/mtr/lrt/getSchedule?station_id=350&with_special=1";
+const LRT_URL = "https://rt.data.gov.hk/v1/transport/mtr/lrt/getSchedule";
+
+const LRT_STATIONS = [
+  { id: 350, board: "lrt-board", status: "lrt-status" },
+  { id: 220, board: "lrt-taihing-s", status: "lrt-taihing-s-status" },
+  { id: 40, board: "lrt-tss", status: "lrt-tss-status" },
+  { id: 468, board: "lrt-chungfu", status: "lrt-chungfu-status" },
+];
 
 let kmbCache = null;
 let kmbError = "";
 let nlbCache = null;
 let nlbError = "";
-let lrtCache = null;
-let lrtError = "";
+const lrtById = {};
 
 function kmbClock(date) {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -170,6 +176,7 @@ function buttonDest(dest) {
     .replace("洪水橋(洪福邨)", "洪福")
     .replace("深圳灣口岸", "深圳灣")
     .replace("屯門碼頭", "屯門")
+    .replace("天水圍循環綫", "天水圍")
     .replace(/站$/, "")
     .replace(/邨$/, "");
 }
@@ -181,10 +188,9 @@ function busMinutes(eta, now) {
   return 9999;
 }
 
-function busRank(route) {
-  const order = ["68A", "63X", "B2"];
-  const index = order.indexOf(route);
-  return index === -1 ? order.length : index;
+function busSoonest(item, now) {
+  const first = item.etas[0];
+  return first ? busMinutes(first, now) : 9999;
 }
 
 function renderBus(board, now) {
@@ -213,17 +219,10 @@ function renderBus(board, now) {
   }
 
   sections.forEach((section) => {
-    section.items.sort((a, b) => busRank(a.route) - busRank(b.route) || a.route.localeCompare(b.route));
+    section.items.sort((a, b) => busSoonest(a, now) - busSoonest(b, now));
   });
-
-  const routes = [];
-  sections.forEach((section) => {
-    section.items.forEach((item) => {
-      if (!routes.includes(item.route)) routes.push(item.route);
-    });
-  });
-  routes.sort((a, b) => busRank(a) - busRank(b) || a.localeCompare(b));
-  if (!routes.length) return;
+  const rows = Math.max(0, ...sections.map((section) => section.items.length));
+  if (!rows) return;
 
   const grid = document.createElement("div");
   grid.className = "lrt-grid";
@@ -235,9 +234,9 @@ function renderBus(board, now) {
     grid.append(heading);
   });
 
-  routes.forEach((route) => {
+  for (let index = 0; index < rows; index += 1) {
     sections.forEach((section) => {
-      const item = section.items.find((entry) => entry.route === route);
+      const item = section.items[index];
       const cell = document.createElement("div");
       cell.className = "lrt-cell";
       if (!item) {
@@ -266,7 +265,7 @@ function renderBus(board, now) {
       cell.append(code, dest, wait);
       grid.append(cell);
     });
-  });
+  }
 
   board.replaceChildren(grid);
 }
@@ -277,16 +276,21 @@ function lrtCars(length) {
   return null;
 }
 
-function lrtRank(route) {
-  const order = ["610", "614", "615", "751"];
-  const index = order.indexOf(route);
-  return index === -1 ? order.length : index;
+function lrtSoonest(item) {
+  return item.etas[0]?.minutes ?? 9999;
 }
 
 function lrtHeading(title) {
-  if (title.includes("元朗")) return "往元朗";
-  if (title.includes("屯門")) return "往屯門";
-  return title;
+  const names = title
+    .replace(/^往/, "")
+    .split("／")
+    .filter(Boolean)
+    .map((name) => buttonDest(name.replaceAll("循環綫", "")));
+  const yuenLong = names.length > 0 && names.every((name) => name === "元朗" || name === "天逸");
+  const tuenMun = names.length > 0 && names.every((name) => name === "屯門" || name === "友愛");
+  if (yuenLong) return "往元朗";
+  if (tuenMun) return "往屯門";
+  return `往${names.join("／")}`;
 }
 
 function lrtSide(title) {
@@ -295,18 +299,12 @@ function lrtSide(title) {
   return 2;
 }
 
-function renderLrt(board) {
-  const sections = arrivalsForLrt(lrtCache.platforms).sort((a, b) => lrtSide(a.title) - lrtSide(b.title));
+function renderLrt(board, platforms) {
+  const sections = arrivalsForLrt(platforms).sort((a, b) => lrtSide(a.title) - lrtSide(b.title));
   sections.forEach((section) => {
-    section.items.sort((a, b) => lrtRank(a.route) - lrtRank(b.route) || a.route.localeCompare(b.route));
+    section.items.sort((a, b) => lrtSoonest(a) - lrtSoonest(b));
   });
-  const routes = [];
-  sections.forEach((section) => {
-    section.items.forEach((item) => {
-      if (!routes.includes(item.route)) routes.push(item.route);
-    });
-  });
-  routes.sort((a, b) => lrtRank(a) - lrtRank(b) || a.localeCompare(b));
+  const rows = Math.max(0, ...sections.map((section) => section.items.length));
 
   const grid = document.createElement("div");
   grid.className = "lrt-grid";
@@ -318,9 +316,9 @@ function renderLrt(board) {
     grid.append(heading);
   });
 
-  routes.forEach((route) => {
+  for (let index = 0; index < rows; index += 1) {
     sections.forEach((section) => {
-      const item = section.items.find((entry) => entry.route === route);
+      const item = section.items[index];
       const cell = document.createElement("div");
       cell.className = "lrt-cell";
       if (!item) {
@@ -354,7 +352,7 @@ function renderLrt(board) {
       cell.append(code, dest, wait);
       grid.append(cell);
     });
-  });
+  }
 
   board.replaceChildren(grid);
 }
@@ -366,14 +364,26 @@ function setStatus(id, updated, fallback) {
   status.classList.toggle("is-live", Boolean(updated));
 }
 
+function renderLrtStation(station) {
+  const board = document.getElementById(station.board);
+  if (!board) return;
+  const cache = lrtById[station.id];
+  setStatus(station.status, cache?.updated, cache?.error ? "未能更新" : "讀取中");
+  if (cache?.platforms && arrivalsForLrt(cache.platforms).length) {
+    renderLrt(board, cache.platforms);
+  } else if (cache?.error) {
+    board.replaceChildren(renderMessage(cache.error));
+  } else if (cache) {
+    board.replaceChildren(renderMessage("暫無班次"));
+  }
+}
+
 function renderKmb() {
   const busBoard = document.getElementById("kmb-board");
-  const lrtBoard = document.getElementById("lrt-board");
-  if (!busBoard || !lrtBoard) return;
+  if (!busBoard) return;
 
   const now = new Date();
   setStatus("kmb-status", kmbCache?.updated || nlbCache?.updated, kmbError || nlbError ? "藍地站" : "讀取中");
-  setStatus("lrt-status", lrtCache?.updated, lrtError ? "藍地站" : "讀取中");
 
   if (kmbCache || nlbCache) {
     renderBus(busBoard, now);
@@ -381,13 +391,7 @@ function renderKmb() {
     busBoard.replaceChildren(renderMessage(kmbError || nlbError));
   }
 
-  if (lrtCache && arrivalsForLrt(lrtCache.platforms).length) {
-    renderLrt(lrtBoard);
-  } else if (lrtError) {
-    lrtBoard.replaceChildren(renderMessage(lrtError));
-  } else if (lrtCache) {
-    lrtBoard.replaceChildren(renderMessage("暫無班次"));
-  }
+  LRT_STATIONS.forEach(renderLrtStation);
 }
 
 function renderMessage(text) {
@@ -440,20 +444,28 @@ async function loadNlb() {
   renderKmb();
 }
 
-async function loadLrt() {
+async function loadLrtStation(station) {
   try {
-    const response = await fetch(LRT_URL);
+    const response = await fetch(`${LRT_URL}?station_id=${station.id}&with_special=1`);
     if (!response.ok) throw new Error(String(response.status));
     const payload = await response.json();
     if (Number(payload.status) !== 1) throw new Error("status");
-    lrtCache = {
+    lrtById[station.id] = {
       updated: new Date(),
       platforms: payload.platform_list || [],
+      error: "",
     };
-    lrtError = "";
   } catch {
-    lrtError = "暫時未能取得到站時間";
+    lrtById[station.id] = {
+      updated: lrtById[station.id]?.updated,
+      platforms: lrtById[station.id]?.platforms,
+      error: "暫時未能取得到站時間",
+    };
   }
+}
+
+async function loadLrt() {
+  await Promise.all(LRT_STATIONS.map(loadLrtStation));
   renderKmb();
 }
 

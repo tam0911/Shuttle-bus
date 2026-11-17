@@ -107,11 +107,29 @@ h3 {
   font-weight: 700;
 }
 
-h1 {
-  margin: 0;
-  font-size: 1.15rem;
-  letter-spacing: 0.02em;
-  line-height: 1.1;
+.view-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.view-tab {
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.view-tab[aria-selected="true"] {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--ivory);
+}
+
+.modes[hidden] {
+  display: none;
 }
 
 .now {
@@ -425,6 +443,8 @@ h1 {
   letter-spacing: 0.04em;
   color: var(--rail);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mode-bus .lrt-grid h3 {
@@ -435,7 +455,7 @@ h1 {
 
 .lrt-cell {
   display: grid;
-  grid-template-columns: 2.1rem minmax(0, 1fr) auto;
+  grid-template-columns: 2.7rem minmax(0, 1fr) auto;
   gap: 4px;
   align-items: baseline;
   min-height: 1.35em;
@@ -521,6 +541,29 @@ h1 {
   .mode-shuttle .big-time {
     font-size: 3rem;
   }
+
+  .modes.modes-more {
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
+.modes-more {
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+}
+
+.modes-more .mode {
+  padding: 6px 8px;
+  gap: 3px;
+}
+
+.modes-more .mode-head h2 {
+  font-size: 0.86rem;
+}
+
+.modes-more .lrt-cell {
+  font-size: 0.74rem;
+  min-height: 1.15em;
 }
 
 @keyframes due {

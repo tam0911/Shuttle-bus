@@ -312,6 +312,18 @@ function init() {
     button.addEventListener("click", () => selectRoute(button.dataset.id));
   });
 
+  document.querySelectorAll(".view-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const panelId = tab.getAttribute("aria-controls");
+      document.querySelectorAll(".view-tab").forEach((item) => {
+        item.setAttribute("aria-selected", item === tab ? "true" : "false");
+      });
+      document.querySelectorAll(".modes").forEach((panel) => {
+        panel.hidden = panel.id !== panelId;
+      });
+    });
+  });
+
   render();
   setInterval(render, 1000);
 }
